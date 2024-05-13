@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        #svg-container {
+            width: calc(100% - 200px);
+            height: 100%;
+            position: absolute;
+        }
+        #sidebar {
+            position: fixed;
+            right: 0;
+            width: 200px;
+            height: 100%;
+            overflow: auto;
+            background-color: #f0f0f0;
+            padding: 10px;
+        }
+        #sidebar-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+    </style>
+</head>
+<body>
+    <div id="svg-container"></div>
+    <div id="sidebar">
+        <div id="sidebar-top">
+            <button id="export-button">Export to CSV</button>
+            <span id="count">0</span>
+        </div>
+    </div>
+    <script>
+        fetch('https://anvaka.github.io/map-of-reddit-data/v2/graph.svg')
+            .then(response => response.text())
+            .then(data => {
+                document.getElementById('svg-container').innerHTML = data;
+                var pathElements = document.querySelectorAll('#borders path');
+                var circleElements = document.querySelectorAll('circle');
+                pathElements.forEach(function(pathElement) {
+                    pathElement.addEventListener('click', function() {
+                        if (this.style.fill === 'red') {
+                            this.style.fill = '';
+                            checkCirclesInPath(this, circleElements, false);
+                        } else {
+                            this.style.fill = 'red';
+                            checkCirclesInPath(this, circleElements, true);
+                        }
+                    });
+                });
+            });
+
+        function checkCirclesInPath(path, circles, add) {
+            var canvas = document.createElement('canvas');
+            var ctx = canvas.getContext('2d');
+            var path2D = new Path2D(path.getAttribute('d'));
+            var sidebar = document.getElementById('sidebar');
+            var button = document.getElementById('export-button');
+            var count = document.getElementById('count');
+            circles.forEach(function(circle) {
+                var cx = parseFloat(circle.getAttribute('cx'));
+                var cy = parseFloat(circle.getAttribute('cy'));
+                if (ctx.isPointInPath(path2D, cx, cy)) {
+                    if (add) {
+                        var p = document.createElement('p');
+                        p.id = 'p-' + circle.id;
+                        p.textContent = circle.id;
+                        sidebar.appendChild(p);
+                        count.textContent = parseInt(count.textContent) + 1;
+                    } else {
+                        var p = document.getElementById('p-' + circle.id);
+                        if (p) {
+                            sidebar.removeChild(p);
+                            count.textContent = parseInt(count.textContent) - 1;
+                        }
+                    }
+                }
+            });
+        }
+
+        document.getElementById('export-button').addEventListener('click', function() {
+            var sidebar = document.getElementById('sidebar');
+            var csvContent = 'data:text/csv;charset=utf-8,';
+            var rows = Array.from(sidebar.getElementsByTagName('p'));
+            rows.forEach(function(row) {
+                csvContent += row.textContent + '\r\n';
+            });
+            var encodedUri = encodeURI(csvContent);
+            var link = document.createElement('a');
+            link.setAttribute('href', encodedUri);
+            link.setAttribute('download', 'export.csv');
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        });
+    </script>
+</body>
+</html>
